@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 type Direction = "UP" | "DOWN" | "LEFT" | "RIGHT";
 type Position = { x: number; y: number };
+type Difficulty = "easy" | "medium" | "hard" | "impossible";
 
 const GRID_SIZE = 20;
 const CELL_SIZE = 20;
@@ -15,7 +16,15 @@ const INITIAL_SNAKE: Position[] = [
   { x: 8, y: 10 },
 ];
 const INITIAL_DIRECTION: Direction = "RIGHT";
-const GAME_SPEED = 100;
+
+const DIFFICULTY_SPEEDS: Record<Difficulty, number> = {
+  easy: 150,
+  medium: 100,
+  hard: 60,
+  impossible: 30,
+};
+
+const OBSTACLE_SPAWN_INTERVAL = 8000; // 8 seconds
 
 const Index = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,6 +37,9 @@ const Index = () => {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [showScorePop, setShowScorePop] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
+  const [obstacle, setObstacle] = useState<Position | null>(null);
+  const [showDifficultySelect, setShowDifficultySelect] = useState(true);
 
   // Load high score from localStorage
   useEffect(() => {
@@ -94,6 +106,24 @@ const Index = () => {
     return () => window.removeEventListener("keydown", handleKeyPress);
   }, [direction, isPlaying, isPaused]);
 
+  // Obstacle spawning
+  useEffect(() => {
+    if (!isPlaying || isGameOver || isPaused) return;
+
+    const spawnObstacle = () => {
+      const newObstacle = generateFood([...snake, ...(obstacle ? [obstacle] : [])]);
+      setObstacle(newObstacle);
+      
+      // Remove obstacle after 5 seconds
+      setTimeout(() => {
+        setObstacle(null);
+      }, 5000);
+    };
+
+    const obstacleInterval = setInterval(spawnObstacle, OBSTACLE_SPAWN_INTERVAL);
+    return () => clearInterval(obstacleInterval);
+  }, [isPlaying, isGameOver, isPaused, snake, obstacle, generateFood]);
+
   // Game loop
   useEffect(() => {
     if (!isPlaying || isGameOver || isPaused) return;
@@ -135,6 +165,14 @@ const Index = () => {
           return prevSnake;
         }
 
+        // Check obstacle collision
+        if (obstacle && head.x === obstacle.x && head.y === obstacle.y) {
+          setIsGameOver(true);
+          setIsPlaying(false);
+          toast.error("Game Over! You hit an obstacle!");
+          return prevSnake;
+        }
+
         newSnake.unshift(head);
 
         // Check food collision
@@ -160,10 +198,10 @@ const Index = () => {
 
         return newSnake;
       });
-    }, GAME_SPEED);
+    }, DIFFICULTY_SPEEDS[difficulty]);
 
     return () => clearInterval(gameInterval);
-  }, [direction, isPlaying, isGameOver, food, score, highScore, generateFood, isPaused]);
+  }, [direction, isPlaying, isGameOver, food, score, highScore, generateFood, isPaused, difficulty, obstacle]);
 
   // Draw game
   useEffect(() => {
@@ -247,8 +285,37 @@ const Index = () => {
     );
     ctx.fill();
 
+    // Draw obstacle with pulsing effect
+    if (obstacle) {
+      const obstacleGradient = ctx.createRadialGradient(
+        obstacle.x * CELL_SIZE + CELL_SIZE / 2,
+        obstacle.y * CELL_SIZE + CELL_SIZE / 2,
+        0,
+        obstacle.x * CELL_SIZE + CELL_SIZE / 2,
+        obstacle.y * CELL_SIZE + CELL_SIZE / 2,
+        CELL_SIZE
+      );
+      obstacleGradient.addColorStop(0, "hsl(280, 100%, 70%)");
+      obstacleGradient.addColorStop(1, "hsl(280, 100%, 40%)");
+
+      ctx.fillStyle = obstacleGradient;
+      ctx.shadowBlur = 25;
+      ctx.shadowColor = "hsl(280, 100%, 60%)";
+      
+      // Draw X shape for obstacle
+      ctx.strokeStyle = obstacleGradient;
+      ctx.lineWidth = 3;
+      const padding = 4;
+      ctx.beginPath();
+      ctx.moveTo(obstacle.x * CELL_SIZE + padding, obstacle.y * CELL_SIZE + padding);
+      ctx.lineTo(obstacle.x * CELL_SIZE + CELL_SIZE - padding, obstacle.y * CELL_SIZE + CELL_SIZE - padding);
+      ctx.moveTo(obstacle.x * CELL_SIZE + CELL_SIZE - padding, obstacle.y * CELL_SIZE + padding);
+      ctx.lineTo(obstacle.x * CELL_SIZE + padding, obstacle.y * CELL_SIZE + CELL_SIZE - padding);
+      ctx.stroke();
+    }
+
     ctx.shadowBlur = 0;
-  }, [snake, food]);
+  }, [snake, food, obstacle]);
 
   const startGame = () => {
     setSnake(INITIAL_SNAKE);
@@ -258,6 +325,8 @@ const Index = () => {
     setIsGameOver(false);
     setIsPlaying(true);
     setIsPaused(false);
+    setObstacle(null);
+    setShowDifficultySelect(false);
     toast.success("Game Started! Use arrow keys to control the snake.");
   };
 
@@ -269,7 +338,44 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-card">
-      <div className="w-full max-w-2xl space-y-6 animate-fade-in-up">
+      {showDifficultySelect && !isPlaying ? (
+        <Card className="w-full max-w-md p-8 space-y-6 border-2 border-primary/20 bg-card/50 backdrop-blur animate-fade-in-up">
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-bold text-primary text-glow-primary tracking-wider uppercase">
+              Snake Game
+            </h1>
+            <p className="text-muted-foreground">Select your difficulty</p>
+          </div>
+          
+          <div className="space-y-3">
+            {(["easy", "medium", "hard", "impossible"] as Difficulty[]).map((level) => (
+              <Button
+                key={level}
+                onClick={() => setDifficulty(level)}
+                variant={difficulty === level ? "default" : "outline"}
+                size="lg"
+                className={`w-full uppercase tracking-wider font-semibold ${
+                  difficulty === level
+                    ? "bg-primary hover:bg-primary/90 text-primary-foreground neon-glow-primary"
+                    : "border-2 border-muted hover:border-primary/50"
+                }`}
+              >
+                {level}
+              </Button>
+            ))}
+          </div>
+
+          <Button
+            onClick={startGame}
+            size="lg"
+            className="w-full gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold uppercase tracking-wider neon-glow-secondary"
+          >
+            <Play className="w-5 h-5" />
+            Start Game
+          </Button>
+        </Card>
+      ) : (
+        <div className="w-full max-w-2xl space-y-6 animate-fade-in-up">
         {/* Header */}
         <div className="text-center space-y-2">
           <h1 className="text-5xl font-bold text-primary text-glow-primary tracking-wider uppercase">
@@ -280,7 +386,7 @@ const Index = () => {
 
         {/* Score Display */}
         <Card className="p-6 border-2 border-primary/20 bg-card/50 backdrop-blur">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="text-center space-y-1">
               <p className="text-sm text-muted-foreground uppercase tracking-wider">Score</p>
               <p className={`text-4xl font-bold text-primary ${showScorePop ? "animate-score-pop" : ""}`}>
@@ -291,6 +397,12 @@ const Index = () => {
               <p className="text-sm text-muted-foreground uppercase tracking-wider">High Score</p>
               <p className="text-4xl font-bold text-secondary text-glow-secondary">
                 {highScore}
+              </p>
+            </div>
+            <div className="text-center space-y-1">
+              <p className="text-sm text-muted-foreground uppercase tracking-wider">Difficulty</p>
+              <p className="text-2xl font-bold text-accent capitalize">
+                {difficulty}
               </p>
             </div>
           </div>
@@ -347,21 +459,16 @@ const Index = () => {
         <div className="flex gap-3 justify-center">
           {!isPlaying || isGameOver ? (
             <Button
-              onClick={startGame}
+              onClick={() => {
+                setShowDifficultySelect(true);
+                setIsPlaying(false);
+                setIsGameOver(false);
+              }}
               size="lg"
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold uppercase tracking-wider neon-glow-primary transition-all duration-300"
             >
-              {isGameOver ? (
-                <>
-                  <RotateCcw className="w-5 h-5" />
-                  Restart
-                </>
-              ) : (
-                <>
-                  <Play className="w-5 h-5" />
-                  Start Game
-                </>
-              )}
+              <RotateCcw className="w-5 h-5" />
+              {isGameOver ? "Play Again" : "New Game"}
             </Button>
           ) : (
             <Button
@@ -391,11 +498,13 @@ const Index = () => {
               <ul className="space-y-1">
                 <li>• Eat food to grow</li>
                 <li>• Avoid walls & yourself</li>
+                <li>• Avoid purple obstacles</li>
               </ul>
             </div>
           </div>
         </Card>
-      </div>
+        </div>
+      )}
     </div>
   );
 };
