@@ -336,43 +336,74 @@ const Index = () => {
     toast.info(isPaused ? "Game Resumed" : "Game Paused");
   };
 
+  const returnToMainMenu = () => {
+    setIsPlaying(false);
+    setIsGameOver(false);
+    setIsPaused(false);
+    setShowDifficultySelect(true);
+    setObstacle(null);
+    toast.info("Returned to Main Menu");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-card">
       {showDifficultySelect && !isPlaying ? (
-        <Card className="w-full max-w-md p-8 space-y-6 border-2 border-primary/20 bg-card/50 backdrop-blur animate-fade-in-up">
-          <div className="text-center space-y-2">
-            <h1 className="text-4xl font-bold text-primary text-glow-primary tracking-wider uppercase">
+        <Card className="w-full max-w-lg p-10 space-y-8 border-2 border-primary/20 bg-card/50 backdrop-blur animate-fade-in-up">
+          <div className="text-center space-y-4">
+            <h1 className="text-5xl font-bold text-primary text-glow-primary tracking-wider uppercase">
               Snake Game
             </h1>
-            <p className="text-muted-foreground">Select your difficulty</p>
+            <p className="text-muted-foreground text-lg">Choose your challenge</p>
+            
+            {highScore > 0 && (
+              <div className="pt-4">
+                <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">
+                  Current High Score
+                </p>
+                <p className="text-5xl font-bold text-secondary text-glow-secondary animate-pulse-glow">
+                  {highScore}
+                </p>
+              </div>
+            )}
           </div>
-          
-          <div className="space-y-3">
-            {(["easy", "medium", "hard", "impossible"] as Difficulty[]).map((level) => (
-              <Button
-                key={level}
-                onClick={() => setDifficulty(level)}
-                variant={difficulty === level ? "default" : "outline"}
-                size="lg"
-                className={`w-full uppercase tracking-wider font-semibold ${
-                  difficulty === level
-                    ? "bg-primary hover:bg-primary/90 text-primary-foreground neon-glow-primary"
-                    : "border-2 border-muted hover:border-primary/50"
-                }`}
-              >
-                {level}
-              </Button>
-            ))}
+
+          <div className="space-y-2">
+            <p className="text-center text-sm text-muted-foreground uppercase tracking-wider mb-3">
+              Select Difficulty
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              {(["easy", "medium", "hard", "impossible"] as Difficulty[]).map((level) => (
+                <Button
+                  key={level}
+                  onClick={() => setDifficulty(level)}
+                  variant={difficulty === level ? "default" : "outline"}
+                  size="lg"
+                  className={`uppercase tracking-wider font-semibold transition-all duration-300 ${
+                    difficulty === level
+                      ? "bg-primary hover:bg-primary/90 text-primary-foreground neon-glow-primary scale-105"
+                      : "border-2 border-muted hover:border-primary/50 hover:scale-105"
+                  }`}
+                >
+                  {level}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <Button
             onClick={startGame}
             size="lg"
-            className="w-full gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold uppercase tracking-wider neon-glow-secondary"
+            className="w-full gap-2 bg-gradient-to-r from-secondary to-accent hover:opacity-90 text-secondary-foreground font-bold uppercase tracking-wider neon-glow-secondary transition-all duration-300 text-lg py-6"
           >
-            <Play className="w-5 h-5" />
+            <Play className="w-6 h-6" />
             Start Game
           </Button>
+
+          <div className="pt-4 border-t border-muted/20">
+            <p className="text-center text-xs text-muted-foreground">
+              Use arrow keys to control • Space to pause • Avoid obstacles
+            </p>
+          </div>
         </Card>
       ) : (
         <div className="w-full max-w-2xl space-y-6 animate-fade-in-up">
@@ -435,10 +466,28 @@ const Index = () => {
 
             {/* Pause Overlay */}
             {isPaused && !isGameOver && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-lg">
-                <div className="text-center space-y-2 animate-fade-in-up">
-                  <p className="text-3xl font-bold text-secondary text-glow-secondary">Paused</p>
-                  <p className="text-sm text-muted-foreground">Press Space to resume</p>
+              <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-md rounded-lg">
+                <div className="text-center space-y-6 p-8 animate-fade-in-up">
+                  <p className="text-4xl font-bold text-secondary text-glow-secondary">Game Paused</p>
+                  <div className="space-y-3">
+                    <Button
+                      onClick={togglePause}
+                      size="lg"
+                      className="w-full gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold uppercase tracking-wider neon-glow-primary"
+                    >
+                      <Play className="w-5 h-5" />
+                      Resume
+                    </Button>
+                    <Button
+                      onClick={returnToMainMenu}
+                      size="lg"
+                      variant="outline"
+                      className="w-full gap-2 border-2 border-muted hover:border-destructive/50 text-foreground hover:text-destructive font-semibold uppercase tracking-wider"
+                    >
+                      Main Menu
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Press Space to resume</p>
                 </div>
               </div>
             )}
@@ -459,16 +508,12 @@ const Index = () => {
         <div className="flex gap-3 justify-center">
           {!isPlaying || isGameOver ? (
             <Button
-              onClick={() => {
-                setShowDifficultySelect(true);
-                setIsPlaying(false);
-                setIsGameOver(false);
-              }}
+              onClick={returnToMainMenu}
               size="lg"
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold uppercase tracking-wider neon-glow-primary transition-all duration-300"
             >
               <RotateCcw className="w-5 h-5" />
-              {isGameOver ? "Play Again" : "New Game"}
+              Main Menu
             </Button>
           ) : (
             <Button
@@ -478,7 +523,7 @@ const Index = () => {
               className="gap-2 border-2 border-secondary text-secondary hover:bg-secondary/10 font-semibold uppercase tracking-wider neon-glow-secondary transition-all duration-300"
             >
               <Pause className="w-5 h-5" />
-              {isPaused ? "Resume" : "Pause"}
+              Pause
             </Button>
           )}
         </div>
